@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Infrared Photo Editor</title>
+  <title>Infrared Photo Editor (All-in-One)</title>
 
   <style>
     /* ===== CSS START ===== */
@@ -46,12 +46,11 @@
       text-align: center;
       transition: background 0.3s ease;
     }
-
     #fileInput:hover {
       background: #f0f0f0;
     }
 
-    /* Center the canvas and add some nice styling */
+    /* Center the canvas and add some styling */
     canvas {
       display: block;
       margin: 0 auto;
@@ -99,7 +98,6 @@
       cursor: pointer;
       transition: background-color 0.3s ease;
     }
-
     #saveBtn:hover {
       background-color: #005fa3;
     }
@@ -109,11 +107,9 @@
       font-size: 0.9em;
       color: #555;
     }
-
     .note ol {
       margin-left: 1.5em;
     }
-
     .note strong {
       font-weight: 600;
     }
@@ -123,7 +119,7 @@
 
 <body>
   <div class="container">
-    <h1>Infrared Photo Editor</h1>
+    <h1>Infrared Photo Editor (All-in-One)</h1>
 
     <!-- File input for user to upload an image -->
     <input type="file" id="fileInput" accept="image/*" />
@@ -171,21 +167,31 @@
       </div>
     </div>
 
+    <!-- Checkbox to retain metadata -->
+    <div style="text-align:center; margin-top:10px;">
+      <input type="checkbox" id="retainMeta" />
+      <label for="retainMeta">Retain Original Metadata</label>
+    </div>
+
     <!-- Button to let user download/save the edited image -->
     <button id="saveBtn">Save Image</button>
 
     <div class="note">
       <p>Steps:</p>
       <ol>
-        <li>Upload an infrared photo.</li>
-        <li>It’ll automatically swap red and blue channels.</li>
-        <li>Click on an area to set white balance (typically grass), and a 3×3 region around the clicked pixel will be used.</li>
+        <li>Upload an infrared photo (JPEG or other formats).</li>
+        <li>We’ll automatically swap red and blue channels.</li>
+        <li>Click near a neutral area to set white balance, using the average color of a 3×3 region.</li>
         <li>Adjust Exposure, Black Point, and Saturation sliders as desired.</li>
-        <li>Click "Save Image" to download the result.</li>
+        <li>Optional: Check “Retain Original Metadata” to keep EXIF info (only if original file was JPEG).</li>
+        <li>Click “Save Image” to download the result.</li>
       </ol>
       <p><strong>Tip:</strong> If you want to start over, just re-upload the image or refresh the page.</p>
     </div>
   </div>
+
+  <!-- PiexifJS library for reading/inserting EXIF -->
+  <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.4/piexif.min.js"></script>
 
   <script>
     // ===== JS START =====
@@ -206,6 +212,9 @@
     const blackPointValue = document.getElementById("blackPointValue");
     const saturationValue = document.getElementById("saturationValue");
 
+    // We'll store the raw file data to re-inject metadata if the user chooses
+    let originalFileData = null;
+
     let originalImageData = null;   // raw image data after channel swap
     let whiteBalancedData = null;   // image data after white balance
     let currentImageData = null;    // final image data after applying sliders
@@ -222,6 +231,9 @@
 
       const reader = new FileReader();
       reader.onload = function(evt) {
+        // store raw file data for metadata
+        originalFileData = evt.target.result;
+
         const img = new Image();
         img.onload = function() {
           // Resize canvas to match the image
@@ -337,12 +349,39 @@
       });
     });
 
-    // 4. Save button to download the edited image as a PNG
+    // 4. Save button to download the edited image
     saveBtn.addEventListener("click", () => {
       if (!currentImageData) return; // No image to save
 
-      // Create a temporary link and trigger download
       const link = document.createElement("a");
+      const retainMeta = document.getElementById("retainMeta").checked;
+
+      if (retainMeta) {
+        // Try to parse EXIF from originalFileData if it's JPEG
+        // We'll only embed metadata if the original file was a JPEG
+        const isJpeg = /^data:image\\/jpeg;base64,/i.test(originalFileData || "");
+        if (isJpeg) {
+          try {
+            // load the existing EXIF from the original file
+            const exifObj = piexif.load(originalFileData);
+            const exifStr = piexif.dump(exifObj);
+
+            // Insert the EXIF data into a new JPEG data URL from the canvas
+            const canvasDataUrl = canvas.toDataURL("image/jpeg");
+            const finalDataUrl = piexif.insert(exifStr, canvasDataUrl);
+
+            link.href = finalDataUrl;
+            link.download = "edited_infrared.jpg";
+            link.click();
+            return;
+          } catch (e) {
+            console.warn("Could not parse or insert EXIF", e);
+            // fallback to PNG if we fail
+          }
+        }
+      }
+
+      // If not retaining metadata or if original file wasn't JPEG, fallback to PNG
       link.download = "edited_infrared.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
