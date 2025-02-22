@@ -228,9 +228,9 @@
 
   <div class="footer-link">
     <!-- Placeholder link. Replace '#' below with your GitHub repository URL -->
-    <a href="https://github.com/jb34756/InfraredPhotoEditor" id="githubLink" target="_blank">
+    <a href="#" id="githubLink" target="_blank">
       <img
-        src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"
+        src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
         alt="GitHub Logo"
         class="github-logo"
       />
@@ -258,6 +258,7 @@
     const saturationValue = document.getElementById("saturationValue");
 
     let originalBase64DataURL = null; // We'll store the base64 of the original file for metadata extraction
+    let originalFilename = "";       // We'll store the original filename so we can re-use it for the edited image
 
     let originalImageData = null;   // raw image data after channel swap
     let whiteBalancedData = null;   // image data after white balance
@@ -266,6 +267,23 @@
     // Helper: clamp a value between 0 and 255
     function clamp(value) {
       return Math.max(0, Math.min(255, value));
+    }
+
+    // Extract base name and extension, and append "--Edited" before the extension.
+    function createEditedFilename(filename) {
+      // If no filename, default.
+      if (!filename) return "image--Edited.jpg";
+
+      // Extract extension
+      const dotIndex = filename.lastIndexOf(".");
+      if (dotIndex < 0) {
+        // No extension, just add --Edited
+        return filename + "--Edited.jpg";
+      } else {
+        const base = filename.substring(0, dotIndex);
+        const extension = filename.substring(dotIndex); // includes the dot
+        return base + "--Edited" + extension;
+      }
     }
 
     // For applying the slider adjustments onto whiteBalancedData
@@ -283,14 +301,7 @@
       const saturation = parseFloat(saturationSlider.value);
 
       // 1) Adjust exposure
-      // We'll do a simple multiplication by 2^(exposure) in linear space.
       const exposureMultiplier = Math.pow(2, exposure);
-
-      // 2) Adjust black point
-      // We'll subtract blackPoint from each channel.
-
-      // 3) Adjust saturation
-      // We'll convert to HSL or use a quick approach.
 
       for (let i = 0; i < data.length; i += 4) {
         let r = data[i];
@@ -308,7 +319,6 @@
         b = b - blackPoint;
 
         // Saturation - quick approximate method:
-        // Convert (r, g, b) to average
         let avg = (r + g + b) / 3;
         r = avg + (r - avg) * saturation;
         g = avg + (g - avg) * saturation;
@@ -338,6 +348,8 @@
     fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
+
+      originalFilename = file.name; // store the original filename
 
       // We'll read the file as data URL
       const reader = new FileReader();
@@ -387,22 +399,16 @@
     canvas.addEventListener("click", (event) => {
       if (!originalImageData) return;
 
-      // Start from the original swapped data
       ctx.putImageData(originalImageData, 0, 0);
       let tempData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       let data = tempData.data;
 
-      // Get bounding box of the canvas in page coordinates
       const rect = canvas.getBoundingClientRect();
-      // Account for any CSS scaling
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      // Convert to actual canvas coords
       const x = Math.floor((event.clientX - rect.left) * scaleX);
       const y = Math.floor((event.clientY - rect.top) * scaleY);
 
-      // We'll gather the 3×3 region around (x, y)
-      // then compute the average R, G, B in that window.
       let sumR = 0, sumG = 0, sumB = 0;
       let count = 0;
 
@@ -410,7 +416,6 @@
         for (let dx = -1; dx <= 1; dx++) {
           const nx = x + dx;
           const ny = y + dy;
-          // Make sure we're inside the canvas
           if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
             const idx = (ny * canvas.width + nx) * 4;
             sumR += data[idx + 0];
@@ -423,31 +428,24 @@
 
       if (count === 0) return;
 
-      // Compute average R, G, B of the 3×3 region
       const avgR = sumR / count;
       const avgG = sumG / count;
       const avgB = sumB / count;
 
-      // We want this region to be white/neutral gray,
-      // so we scale each channel so that the final is average(R,G,B).
       const mean = (avgR + avgG + avgB) / 3;
       const scaleR = avgR ? mean / avgR : 1;
       const scaleG = avgG ? mean / avgG : 1;
       const scaleB = avgB ? mean / avgB : 1;
 
-      // Scale the entire image by these factors
       for (let i = 0; i < data.length; i += 4) {
         data[i]   = clamp(data[i]   * scaleR); // R
         data[i+1] = clamp(data[i+1] * scaleG); // G
         data[i+2] = clamp(data[i+2] * scaleB); // B
       }
 
-      // Update the canvas with white-balanced image
       ctx.putImageData(tempData, 0, 0);
-      // Store it as our new whiteBalancedData for further adjustments
       whiteBalancedData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      // Re-apply the sliders to the newly white-balanced image
       applyAdjustments();
     });
 
@@ -461,33 +459,30 @@
 
     // 4. Save button to download the edited image as a PNG or JPG.
     saveBtn.addEventListener("click", () => {
-      if (!currentImageData) return; // No image to save
+      if (!currentImageData) return;
 
       // Convert canvas to base64 data URL (JPEG to better handle metadata)
       const dataURL = canvas.toDataURL("image/jpeg", 0.95);
-
       let finalURL = dataURL;
 
       // If user wants to retain metadata, and we have the original base64
       if (retainMetadataCheck.checked && originalBase64DataURL) {
         try {
-          // Attempt to load metadata from the original base64 using piexif.
           const exifObj = piexif.load(originalBase64DataURL);
-          // Dump it to exif bytes.
           const exifBytes = piexif.dump(exifObj);
-
-          // Insert that into our new dataURL
           finalURL = piexif.insert(exifBytes, dataURL);
         } catch (err) {
           console.warn("Could not retain metadata:", err);
-          // If something went wrong, we still fallback to the normal dataURL.
           finalURL = dataURL;
         }
       }
 
+      // Build a custom edited filename from the original
+      const editedFilename = createEditedFilename(originalFilename);
+
       // Create a temporary link and trigger download
       const link = document.createElement("a");
-      link.download = "edited_infrared.jpg";
+      link.download = editedFilename;
       link.href = finalURL;
       document.body.appendChild(link);
       link.click();
