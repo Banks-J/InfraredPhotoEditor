@@ -1,94 +1,88 @@
-const fileInput = document.getElementById("fileInput");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-
-let originalImageData = null; // Will store the raw image data after channel swap
-let currentImageData = null;  // For manipulations (white balance, etc.)
-
-// Helper: clamp a value between 0 and 255
-function clamp(value) {
-  return Math.max(0, Math.min(255, value));
+/* Globally ensure box-sizing applies to all elements */
+* {
+  box-sizing: border-box;
 }
 
-// Load image from file input
-fileInput.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  background: #f1f2f3; /* Light gray background */
+}
 
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const img = new Image();
-    img.onload = function() {
-      // Resize canvas
-      canvas.width = img.width;
-      canvas.height = img.height;
+.container {
+  background: #ffffff;
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
 
-      // Draw the image on the canvas
-      ctx.drawImage(img, 0, 0);
+h1 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: center;
+}
 
-      // Get the image data
-      let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      let data = imageData.data;
+#fileInput {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 20px;
+  border: 2px dashed #888;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.3s ease;
+}
 
-      // Swap red and blue channels (data format: [R,G,B,A, R,G,B,A, ...])
-      for (let i = 0; i < data.length; i += 4) {
-        const red = data[i];
-        const green = data[i + 1];
-        const blue = data[i + 2];
-        // Swap red & blue
-        data[i]     = blue;  // new R
-        data[i + 1] = green; // new G
-        data[i + 2] = red;   // new B
-      }
+#fileInput:hover {
+  background: #f0f0f0;
+}
 
-      // Put swapped data back, draw it, and store it
-      ctx.putImageData(imageData, 0, 0);
+/* Center the canvas and add some nice styling */
+canvas {
+  display: block;
+  margin: 0 auto;
+  cursor: crosshair;
+  border-radius: 10px;
+  margin-top: 10px;
+  max-width: 100%;
+  border: 2px solid #ccc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
 
-      // Keep a copy of the swapped data as the "original"
-      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    };
-    img.src = evt.target.result;
-  };
-  reader.readAsDataURL(file);
-});
+/* Save button styling */
+#saveBtn {
+  display: block;
+  margin: 20px auto;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  background-color: #0078d4;
+  color: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
 
-// On canvas click, set that pixel as “white” and do a simple white balance
-canvas.addEventListener("click", (event) => {
-  if (!currentImageData) return;
+#saveBtn:hover {
+  background-color: #005fa3;
+}
 
-  // Get click position on the canvas
-  const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
+.note {
+  margin-top: 20px;
+  font-size: 0.9em;
+  color: #555;
+}
 
-  // Calculate index in the data array (row-major, 4 bytes per pixel)
-  const idx = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
-  let data = currentImageData.data;
+.note ol {
+  margin-left: 1.5em;
+}
 
-  // The pixel’s current R, G, B
-  const r0 = data[idx];
-  const g0 = data[idx + 1];
-  const b0 = data[idx + 2];
-
-  // We'll make that pixel become gray (white).
-  // Simple approach: find average, scale R, G, B so that they become (avg, avg, avg).
-  const avg = (r0 + g0 + b0) / 3;
-  const scaleR = r0 ? avg / r0 : 1;
-  const scaleG = g0 ? avg / g0 : 1;
-  const scaleB = b0 ? avg / b0 : 1;
-
-  // Reset current data to the original swapped version each time
-  ctx.putImageData(originalImageData, 0, 0);
-  currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  data = currentImageData.data;
-
-  // Scale entire image by those factors
-  for (let i = 0; i < data.length; i += 4) {
-    data[i]   = clamp(data[i]   * scaleR); // R
-    data[i+1] = clamp(data[i+1] * scaleG); // G
-    data[i+2] = clamp(data[i+2] * scaleB); // B
-  }
-
-  ctx.putImageData(currentImageData, 0, 0);
-});
+.note strong {
+  font-weight: 600;
+}
