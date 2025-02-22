@@ -9,7 +9,7 @@ A simple web app to edit and enhance infrared photos:
 
 ---
 
-## Before & After
+## Example of use
 
 The first image is the **original** infrared photo, and the second image shows the **edited** result after performing the red-blue channel swap, white balance, and some adjustments:
 
