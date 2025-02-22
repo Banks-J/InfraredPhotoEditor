@@ -102,6 +102,29 @@
       margin-right: 8px;
     }
 
+    /* Filename options styling */
+    .filename-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .filename-container label {
+      display: flex;
+      flex-direction: column;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #333;
+    }
+    .filename-container input[type="text"] {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-top: 4px;
+      min-width: 100px;
+    }
+
     /* Save button styling */
     #saveBtn {
       display: block;
@@ -210,6 +233,18 @@
       <label for="retainMetadataCheck">Retain original photo metadata</label>
     </div>
 
+    <!-- Custom filename options -->
+    <div class="filename-container">
+      <label>
+        Filename Prefix
+        <input type="text" id="filenamePrefix" placeholder="" value="" />
+      </label>
+      <label>
+        Filename Suffix
+        <input type="text" id="filenameSuffix" placeholder="" value="--Edited" />
+      </label>
+    </div>
+
     <!-- Button to let user download/save the edited image -->
     <button id="saveBtn">Save Image</button>
 
@@ -257,6 +292,10 @@
     const blackPointValue = document.getElementById("blackPointValue");
     const saturationValue = document.getElementById("saturationValue");
 
+    // Custom filename fields
+    const prefixInput = document.getElementById("filenamePrefix");
+    const suffixInput = document.getElementById("filenameSuffix");
+
     let originalBase64DataURL = null; // We'll store the base64 of the original file for metadata extraction
     let originalFilename = "";       // We'll store the original filename so we can re-use it for the edited image
 
@@ -269,20 +308,27 @@
       return Math.max(0, Math.min(255, value));
     }
 
-    // Extract base name and extension, and append "--Edited" before the extension.
+    // Combine prefix, filename base, and suffix + extension.
+    // e.g. prefix = "My_", suffix = "--Edited", original = "photo.jpg" -> "My_photo--Edited.jpg"
+    // If no extension is found, add .jpg by default.
     function createEditedFilename(filename) {
-      // If no filename, default.
-      if (!filename) return "image--Edited.jpg";
+      const prefixVal = prefixInput.value || "";
+      const suffixVal = suffixInput.value || "";
 
-      // Extract extension
+      if (!filename) {
+        // Fallback: if no filename is known, build from prefix + "image" + suffix + .jpg
+        return prefixVal + "image" + suffixVal + ".jpg";
+      }
+
+      // Identify extension
       const dotIndex = filename.lastIndexOf(".");
       if (dotIndex < 0) {
-        // No extension, just add --Edited
-        return filename + "--Edited.jpg";
+        // No extension, just prefix + filename + suffix + .jpg
+        return prefixVal + filename + suffixVal + ".jpg";
       } else {
         const base = filename.substring(0, dotIndex);
         const extension = filename.substring(dotIndex); // includes the dot
-        return base + "--Edited" + extension;
+        return prefixVal + base + suffixVal + extension;
       }
     }
 
@@ -477,7 +523,7 @@
         }
       }
 
-      // Build a custom edited filename from the original
+      // Build a custom edited filename from the original, using prefix/suffix
       const editedFilename = createEditedFilename(originalFilename);
 
       // Create a temporary link and trigger download
