@@ -2,13 +2,105 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Infrared Photo Editor</title>
-  <!-- Link to external stylesheet -->
-  <link rel="stylesheet" href="style.css" />
+  <title>Infrared Photo Editor (All-in-One)</title>
+
+  <style>
+    /* ===== CSS START ===== */
+    /* Globally ensure box-sizing applies to all elements */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background: #f1f2f3; /* Light gray background */
+    }
+
+    .container {
+      background: #ffffff;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    #fileInput {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 20px;
+      border: 2px dashed #888;
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.3s ease;
+    }
+
+    #fileInput:hover {
+      background: #f0f0f0;
+    }
+
+    /* Center the canvas and add some nice styling */
+    canvas {
+      display: block;
+      margin: 0 auto;
+      cursor: crosshair;
+      border-radius: 10px;
+      margin-top: 10px;
+      max-width: 100%;
+      border: 2px solid #ccc;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Save button styling */
+    #saveBtn {
+      display: block;
+      margin: 20px auto;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      background-color: #0078d4;
+      color: #ffffff;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #saveBtn:hover {
+      background-color: #005fa3;
+    }
+
+    .note {
+      margin-top: 20px;
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .note ol {
+      margin-left: 1.5em;
+    }
+
+    .note strong {
+      font-weight: 600;
+    }
+    /* ===== CSS END ===== */
+  </style>
 </head>
+
 <body>
   <div class="container">
-    <h1>Infrared Photo Editor</h1>
+    <h1>Infrared Photo Editor (All-in-One)</h1>
 
     <!-- File input for user to upload an image -->
     <input type="file" id="fileInput" accept="image/*" />
@@ -24,14 +116,145 @@
       <ol>
         <li>Upload an infrared photo.</li>
         <li>We’ll automatically swap red and blue channels.</li>
-        <li>Click on a pixel to set it as “white” and adjust the entire image’s color balance.</li>
-        <li>If desired, click "Save Image" to download the result.</li>
+        <li>Click near a neutral area to set white balance, using the average color of a 3×3 region around the clicked pixel.</li>
+        <li>Click "Save Image" to download the result if you’d like.</li>
       </ol>
       <p><strong>Tip:</strong> If you want to start over, just re-upload the image or refresh the page.</p>
     </div>
   </div>
 
-  <!-- Link to external JavaScript file -->
-  <script src="script.js"></script>
+  <script>
+    // ===== JS START =====
+
+    const fileInput = document.getElementById("fileInput");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const saveBtn = document.getElementById("saveBtn");
+
+    let originalImageData = null; // Will store the raw image data after channel swap
+    let currentImageData = null;  // For white balance manipulations
+
+    // Helper: clamp a value between 0 and 255
+    function clamp(value) {
+      return Math.max(0, Math.min(255, value));
+    }
+
+    // 1. Load image from file input, swap red and blue
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = new Image();
+        img.onload = function() {
+          // Resize canvas to match the image
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          // Draw the image on the canvas
+          ctx.drawImage(img, 0, 0);
+
+          // Get the image data
+          let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let data = imageData.data;
+
+          // Swap red and blue channels (data format: [R,G,B,A, R,G,B,A, ...])
+          for (let i = 0; i < data.length; i += 4) {
+            const red = data[i];
+            const green = data[i + 1];
+            const blue = data[i + 2];
+            // Swap red & blue
+            data[i]     = blue;  // new R
+            data[i + 1] = green; // new G
+            data[i + 2] = red;   // new B
+          }
+
+          // Put swapped data back, draw it, and store it
+          ctx.putImageData(imageData, 0, 0);
+          originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 2. On canvas click, set white balance by averaging a 3×3 region around the clicked pixel
+    canvas.addEventListener("click", (event) => {
+      if (!currentImageData) return;
+
+      // Get bounding box of the canvas in page coordinates
+      const rect = canvas.getBoundingClientRect();
+      // Account for any CSS scaling
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      // Convert to actual canvas coords
+      const x = Math.floor((event.clientX - rect.left) * scaleX);
+      const y = Math.floor((event.clientY - rect.top) * scaleY);
+
+      // Reset to the original swapped image data each time
+      ctx.putImageData(originalImageData, 0, 0);
+      currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let data = currentImageData.data;
+
+      // We'll gather the 3×3 region around (x, y)
+      // then compute the average R, G, B in that window.
+      let sumR = 0, sumG = 0, sumB = 0;
+      let count = 0;
+
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          // Make sure we're inside the canvas
+          if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
+            const idx = (ny * canvas.width + nx) * 4;
+            sumR += data[idx + 0];
+            sumG += data[idx + 1];
+            sumB += data[idx + 2];
+            count++;
+          }
+        }
+      }
+
+      if (count === 0) return; // Shouldn't happen unless canvas is extremely small
+
+      // Compute average R, G, B of the 3×3 region
+      const avgR = sumR / count;
+      const avgG = sumG / count;
+      const avgB = sumB / count;
+
+      // We want this region to be white/neutral gray,
+      // so we scale each channel so that the final is average(R,G,B).
+      const mean = (avgR + avgG + avgB) / 3;
+      const scaleR = avgR ? mean / avgR : 1;
+      const scaleG = avgG ? mean / avgG : 1;
+      const scaleB = avgB ? mean / avgB : 1;
+
+      // Scale the entire image by these factors
+      for (let i = 0; i < data.length; i += 4) {
+        data[i]   = clamp(data[i]   * scaleR); // R
+        data[i+1] = clamp(data[i+1] * scaleG); // G
+        data[i+2] = clamp(data[i+2] * scaleB); // B
+      }
+
+      // Update the canvas with our newly white-balanced image
+      ctx.putImageData(currentImageData, 0, 0);
+    });
+
+    // 3. Save button to download the edited image as a PNG
+    saveBtn.addEventListener("click", () => {
+      if (!currentImageData) return; // No image to save
+
+      // Create a temporary link and trigger download
+      const link = document.createElement("a");
+      link.download = "edited_infrared.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+
+    // ===== JS END =====
+  </script>
 </body>
 </html>
