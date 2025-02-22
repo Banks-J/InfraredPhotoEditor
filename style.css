@@ -1,0 +1,27 @@
+body {
+  font-family: sans-serif;
+  margin: 20px;
+  background: #f9f9f9;
+}
+
+h1 {
+  margin-bottom: 10px;
+}
+
+#fileInput {
+  margin-bottom: 10px;
+}
+
+canvas {
+  display: block;
+  margin-top: 10px;
+  cursor: crosshair;
+  border: 2px solid #ccc;
+  max-width: 100%;
+}
+
+.note {
+  margin-top: 10px;
+  font-size: 0.9em;
+  color: #555;
+}
