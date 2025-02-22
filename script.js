@@ -67,7 +67,7 @@ canvas.addEventListener("click", (event) => {
   let data = currentImageData.data;
 
   // The pixel’s current R, G, B
-  const r0 = data[idx + 0];
+  const r0 = data[idx];
   const g0 = data[idx + 1];
   const b0 = data[idx + 2];
 
