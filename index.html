@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Infrared Photo Editor</title>
+  <title>Infrared Photo Editor (All-in-One)</title>
 
   <style>
     /* ===== CSS START ===== */
@@ -63,6 +63,29 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
+    /* Sliders layout */
+    .slider-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      margin: 20px 0;
+    }
+    .slider-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 10px;
+      min-width: 120px;
+    }
+    .slider-box label {
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .slider-box input[type="range"] {
+      width: 120px;
+    }
+
     /* Save button styling */
     #saveBtn {
       display: block;
@@ -100,13 +123,53 @@
 
 <body>
   <div class="container">
-    <h1>Infrared Photo Editor</h1>
+    <h1>Infrared Photo Editor (All-in-One)</h1>
 
     <!-- File input for user to upload an image -->
     <input type="file" id="fileInput" accept="image/*" />
 
     <!-- Canvas to display and manipulate the image -->
     <canvas id="canvas"></canvas>
+
+    <!-- Sliders for Exposure, Black Point, Saturation -->
+    <div class="slider-container">
+      <div class="slider-box">
+        <label for="exposureSlider">Exposure</label>
+        <input
+          type="range"
+          id="exposureSlider"
+          min="-1"
+          max="1"
+          step="0.01"
+          value="0"
+        />
+        <span id="exposureValue">0</span>
+      </div>
+      <div class="slider-box">
+        <label for="blackPointSlider">Black Point</label>
+        <input
+          type="range"
+          id="blackPointSlider"
+          min="0"
+          max="127"
+          step="1"
+          value="0"
+        />
+        <span id="blackPointValue">0</span>
+      </div>
+      <div class="slider-box">
+        <label for="saturationSlider">Saturation</label>
+        <input
+          type="range"
+          id="saturationSlider"
+          min="0"
+          max="2"
+          step="0.1"
+          value="1"
+        />
+        <span id="saturationValue">1</span>
+      </div>
+    </div>
 
     <!-- Button to let user download/save the edited image -->
     <button id="saveBtn">Save Image</button>
@@ -115,9 +178,10 @@
       <p>Steps:</p>
       <ol>
         <li>Upload an infrared photo.</li>
-        <li>It'll automatically swap red and blue channels.</li>
-        <li>Click on an area to set white balance (typically grass), an area of a 3×3 region around the clicked pixel will be used.</li>
-        <li>Click "Save Image" to download the result.</li>
+        <li>We’ll automatically swap red and blue channels.</li>
+        <li>Click near a neutral area to set white balance, using the average color of a 3×3 region.</li>
+        <li>Adjust Exposure, Black Point, and Saturation sliders as desired.</li>
+        <li>Click "Save Image" to download the result if you’d like.</li>
       </ol>
       <p><strong>Tip:</strong> If you want to start over, just re-upload the image or refresh the page.</p>
     </div>
@@ -129,10 +193,22 @@
     const fileInput = document.getElementById("fileInput");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
+
     const saveBtn = document.getElementById("saveBtn");
 
-    let originalImageData = null; // Will store the raw image data after channel swap
-    let currentImageData = null;  // For white balance manipulations
+    // Sliders
+    const exposureSlider = document.getElementById("exposureSlider");
+    const blackPointSlider = document.getElementById("blackPointSlider");
+    const saturationSlider = document.getElementById("saturationSlider");
+
+    // Slider value labels
+    const exposureValue = document.getElementById("exposureValue");
+    const blackPointValue = document.getElementById("blackPointValue");
+    const saturationValue = document.getElementById("saturationValue");
+
+    let originalImageData = null;   // raw image data after channel swap
+    let whiteBalancedData = null;   // image data after white balance
+    let currentImageData = null;    // final image data after applying sliders
 
     // Helper: clamp a value between 0 and 255
     function clamp(value) {
@@ -159,7 +235,7 @@
           let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           let data = imageData.data;
 
-          // Swap red and blue channels (data format: [R,G,B,A, R,G,B,A, ...])
+          // Swap red and blue channels
           for (let i = 0; i < data.length; i += 4) {
             const red = data[i];
             const green = data[i + 1];
@@ -173,7 +249,12 @@
           // Put swapped data back, draw it, and store it
           ctx.putImageData(imageData, 0, 0);
           originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+          // By default, whiteBalancedData is initially the same as the swapped image
+          whiteBalancedData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+          // Apply adjustments in case user moves sliders
+          applyAdjustments();
         };
         img.src = evt.target.result;
       };
@@ -182,7 +263,12 @@
 
     // 2. On canvas click, set white balance by averaging a 3×3 region around the clicked pixel
     canvas.addEventListener("click", (event) => {
-      if (!currentImageData) return;
+      if (!originalImageData) return;
+
+      // Start from the original swapped data
+      ctx.putImageData(originalImageData, 0, 0);
+      let tempData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let data = tempData.data;
 
       // Get bounding box of the canvas in page coordinates
       const rect = canvas.getBoundingClientRect();
@@ -192,11 +278,6 @@
       // Convert to actual canvas coords
       const x = Math.floor((event.clientX - rect.left) * scaleX);
       const y = Math.floor((event.clientY - rect.top) * scaleY);
-
-      // Reset to the original swapped image data each time
-      ctx.putImageData(originalImageData, 0, 0);
-      currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      let data = currentImageData.data;
 
       // We'll gather the 3×3 region around (x, y)
       // then compute the average R, G, B in that window.
@@ -218,7 +299,7 @@
         }
       }
 
-      if (count === 0) return; // Shouldn't happen unless canvas is extremely small
+      if (count === 0) return;
 
       // Compute average R, G, B of the 3×3 region
       const avgR = sumR / count;
@@ -239,11 +320,24 @@
         data[i+2] = clamp(data[i+2] * scaleB); // B
       }
 
-      // Update the canvas with our newly white-balanced image
-      ctx.putImageData(currentImageData, 0, 0);
+      // Update the canvas with white-balanced image
+      ctx.putImageData(tempData, 0, 0);
+      // Store it as our new whiteBalancedData for further adjustments
+      whiteBalancedData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // Re-apply the sliders to the newly white-balanced image
+      applyAdjustments();
     });
 
-    // 3. Save button to download the edited image as a PNG
+    // 3. Sliders event listeners
+    [exposureSlider, blackPointSlider, saturationSlider].forEach((slider) => {
+      slider.addEventListener("input", () => {
+        updateSliderLabels();
+        applyAdjustments();
+      });
+    });
+
+    // 4. Save button to download the edited image as a PNG
     saveBtn.addEventListener("click", () => {
       if (!currentImageData) return; // No image to save
 
@@ -253,6 +347,76 @@
       link.href = canvas.toDataURL("image/png");
       link.click();
     });
+
+    // Update the numeric labels for sliders
+    function updateSliderLabels() {
+      exposureValue.textContent = exposureSlider.value;
+      blackPointValue.textContent = blackPointSlider.value;
+      saturationValue.textContent = saturationSlider.value;
+    }
+
+    // Applies exposure, black point, and saturation to the whiteBalancedData
+    function applyAdjustments() {
+      if (!whiteBalancedData) return; // No image loaded yet
+
+      // Create a fresh copy of whiteBalancedData
+      let data = whiteBalancedData.data;
+      let copy = new Uint8ClampedArray(data.length);
+      copy.set(data);
+      let newImageData = new ImageData(copy, whiteBalancedData.width, whiteBalancedData.height);
+      let d = newImageData.data;
+
+      // Get slider values
+      let exposure = parseFloat(exposureSlider.value);
+      let blackPoint = parseFloat(blackPointSlider.value);
+      let saturation = parseFloat(saturationSlider.value);
+
+      // Convert exposure to a multiplier (2^exposure)
+      let exposureFactor = Math.pow(2, exposure);
+
+      for (let i = 0; i < d.length; i += 4) {
+        // Read original values
+        let r = d[i];
+        let g = d[i+1];
+        let b = d[i+2];
+
+        // 1) Exposure (multiplicative)
+        r *= exposureFactor;
+        g *= exposureFactor;
+        b *= exposureFactor;
+
+        // 2) Black Point
+        r = (r - blackPoint);
+        g = (g - blackPoint);
+        b = (b - blackPoint);
+
+        r = (r / (255 - blackPoint)) * 255;
+        g = (g / (255 - blackPoint)) * 255;
+        b = (b / (255 - blackPoint)) * 255;
+
+        r = clamp(r);
+        g = clamp(g);
+        b = clamp(b);
+
+        // 3) Saturation
+        let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = gray + (r - gray) * saturation;
+        g = gray + (g - gray) * saturation;
+        b = gray + (b - gray) * saturation;
+
+        // Final clamp
+        d[i]   = clamp(r);
+        d[i+1] = clamp(g);
+        d[i+2] = clamp(b);
+      }
+
+      // Draw final result onto canvas
+      ctx.putImageData(newImageData, 0, 0);
+      currentImageData = newImageData;
+    }
+
+    // Initialize slider labels
+    updateSliderLabels();
 
     // ===== JS END =====
   </script>
