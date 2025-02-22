@@ -1,27 +1,75 @@
+/* Globally ensure box-sizing applies to all elements */
+* {
+  box-sizing: border-box;
+}
+
+/* Body background with a simple subtle color */
 body {
+  margin: 0;
+  padding: 0;
   font-family: sans-serif;
-  margin: 20px;
-  background: #f9f9f9;
+  background: #f1f2f3; /* Light gray background */
 }
 
+/* Main container with a card-like style */
+.container {
+  background: #ffffff;
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Heading style */
 h1 {
-  margin-bottom: 10px;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: center;
 }
 
+/* Style the file input */
 #fileInput {
-  margin-bottom: 10px;
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 20px;
+  border: 2px dashed #888;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.3s ease;
 }
 
+#fileInput:hover {
+  background: #f0f0f0;
+}
+
+/* Canvas styling */
 canvas {
   display: block;
-  margin-top: 10px;
+  margin: 0 auto;
   cursor: crosshair;
-  border: 2px solid #ccc;
+  border-radius: 10px;
+  margin-top: 10px;
   max-width: 100%;
+  border: 2px solid #ccc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Note / Instructions section */
 .note {
-  margin-top: 10px;
+  margin-top: 20px;
   font-size: 0.9em;
   color: #555;
+}
+
+.note ol {
+  margin-left: 1.5em;
+}
+
+.note strong {
+  font-weight: 600;
 }
