@@ -13,10 +13,12 @@ A simple web app to edit and enhance infrared photos:
 
 The first image is the **original** infrared photo, and the second image shows the **edited** result after performing the red-blue channel swap, white balance, and some adjustments:
 
-**Before**  
-![_1000180](https://github.com/user-attachments/assets/9c1e42bf-0d07-4f87-b8c8-4ec1d49d3730)
+---
 
-**After**  
-![download](https://github.com/user-attachments/assets/14f84576-2f5e-465f-a038-68850c252dda)
+## Before & After
+
+| **Before**                                                                 | **After**                                                                  |
+|:---------------------------------------------------------------------------:|:---------------------------------------------------------------------------:|
+| ![_1000180](https://github.com/user-attachments/assets/9c1e42bf-0d07-4f87-b8c8-4ec1d49d3730) | ![download](https://github.com/user-attachments/assets/14f84576-2f5e-465f-a038-68850c252dda) |
 
 ---
