@@ -5,7 +5,7 @@ A simple web app to edit and enhance infrared photos:
 - **Automatically swaps Red/Blue channels** (commonly used in infrared photography).
 - **White balance**: Click a gray/white spot in the photo to neutralize color casts.  
 - **Sliders** for **Exposure**, **Black Point**, and **Saturation** to tweak your final image.
-- **Save** the result as a PNG with one click.
+- **Save** the result with one click.
 
 ---
 
