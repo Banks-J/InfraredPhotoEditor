@@ -340,7 +340,8 @@
       tnCtx.drawImage(canvas, 0, 0, desiredWidth, thumbHeight);
 
       // Convert to base64 JPEG
-      const thumbDataURL = tnCanvas.toDataURL("image/jpeg", 0.7);
+      const thumbDataURL = tnCanvas.toDataURL("image/jpeg", 0.7); // 0.7 = 70% quality
+
       // strip off "data:image/jpeg;base64," prefix
       const base64String = thumbDataURL.split(",")[1];
       // convert to binary
@@ -497,6 +498,7 @@
       let sumR = 0, sumG = 0, sumB = 0;
       let count = 0;
 
+      // Loop averages the RGB values of a 3×3 region around the clicked pixel
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           const nx = x + dx;
