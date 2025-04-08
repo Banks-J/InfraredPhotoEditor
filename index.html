@@ -547,46 +547,41 @@
 
     // 4. Save button to download the edited image as a PNG or JPG.
     saveBtn.addEventListener("click", () => {
-      if (!currentImageData) return;
+  if (!currentImageData) return;
 
-      // Convert canvas to base64 data URL (JPEG to better handle metadata)
-      const dataURL = canvas.toDataURL("image/jpeg", 0.95);
-      let finalURL = dataURL;
+  const dataURL = canvas.toDataURL("image/jpeg", 0.95);
+  let finalURL = dataURL;
 
-      // If user wants to retain metadata, and we have the original base64
-      if (retainMetadataCheck.checked && originalBase64DataURL) {
-        try {
-          // Load the original EXIF data
-          const exifObj = piexif.load(originalBase64DataURL);
-
-          // Replace the thumbnail with an updated one from the edited image
-          const newThumbBinary = createThumbnailBinary();
-          if (newThumbBinary) {
-            exifObj.thumbnail = newThumbBinary;
-          }
-
-          // Dump the modified exif data
-          const exifBytes = piexif.dump(exifObj);
-
-          // Insert it into the final dataURL
-          finalURL = piexif.insert(exifBytes, dataURL);
-        } catch (err) {
-          console.warn("Could not retain metadata or update thumbnail:", err);
-          finalURL = dataURL;
-        }
+  if (retainMetadataCheck.checked && originalBase64DataURL) {
+    try {
+      const exifObj = piexif.load(originalBase64DataURL);
+      const newThumbBinary = createThumbnailBinary();
+      if (newThumbBinary) {
+        exifObj.thumbnail = newThumbBinary;
       }
+      const exifBytes = piexif.dump(exifObj);
+      finalURL = piexif.insert(exifBytes, dataURL);
+    } catch (err) {
+      console.warn("Could not retain metadata or update thumbnail:", err);
+    }
+  }
 
-      // Build a custom edited filename from the original, using prefix/suffix
-      const editedFilename = createEditedFilename(originalFilename);
+  const filename = createEditedFilename(originalFilename);
 
-      // Create a temporary link and trigger download
-      const link = document.createElement("a");
-      link.download = editedFilename;
-      link.href = finalURL;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
+  // ✅ Send to Android to save
+  if (window.AndroidInterface) {
+    window.AndroidInterface.saveImage(finalURL, filename);
+  } else {
+    // fallback for desktop
+    const link = document.createElement("a");
+    link.href = finalURL;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+});
+
 
     // ===== JS END =====
   </script>
